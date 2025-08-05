@@ -1,0 +1,8 @@
+2025-08-05 13:35:39,401 - INFO - Loaded 73 books from metadata_full.csv
+2025-08-05 13:35:39,403 - INFO - Processing daily batch: 3 books
+2025-08-05 13:35:39,404 - INFO - Preparing book: Der geheime Bissmoment
+2025-08-05 13:35:39,405 - WARNING - File not found for ebook_cover: C:\Users\admin\Desktop\KDP\chat-gpt\formatiert\Mit Bildern\fertige_buecher\der_geheime_bissmoment_angeln_-_timing_v\der_geheime_bissmoment_cover.png
+2025-08-05 13:35:39,405 - WARNING - File not found for print_cover: C:\Users\admin\Desktop\KDP\chat-gpt\formatiert\Mit Bildern\fertige_buecher\der_geheime_bissmoment_angeln_-_timing_v\der_geheime_bissmoment_cover-full.png
+2025-08-05 13:35:39,406 - WARNING - File not found for epub: C:\Users\admin\Desktop\KDP\chat-gpt\formatiert\Mit Bildern\fertige_buecher\der_geheime_bissmoment_angeln_-_timing_v\der_geheime_bissmoment.epub
+2025-08-05 13:35:39,406 - WARNING - File not found for docx: C:\Users\admin\Desktop\KDP\chat-gpt\formatiert\Mit Bildern\fertige_buecher\der_geheime_bissmoment_angeln_-_timing_v\der_geheime_bissmoment.docx
+2025-08-05 13:35:39,408 - ERROR - Error in daily batch processing: Object of type int64 is not JSON serializable

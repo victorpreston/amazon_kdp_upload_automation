@@ -1,0 +1,15 @@
+venv
+logs
+dist
+build
+test_books
+create_test_enviroenment.py
+metadata_test.csv
+release
+
+*.exe
+*.png
+*.pdf
+
+prepared_books
+chrome_profile

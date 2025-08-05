@@ -1,0 +1,42 @@
+KDP FORM ELEMENT ANALYSIS
+==================================================
+
+URL: https://kdp.amazon.com/en_US/title-setup/kindle/new/details?ref_=cr_ti
+Page Title: [KDP] Edit eBook Details | Amazon Kindle Direct Publishing
+Analysis Time: 2025-08-06 02:34:04.477128
+
+KEY FORM FIELDS FOUND:
+------------------------------
+INPUT: type=text, name=, id=, placeholder=
+INPUT: type=text, name=data[title], id=data-title, placeholder=
+INPUT: type=text, name=data[subtitle], id=data-subtitle, placeholder=
+INPUT: type=text, name=data[edition_number], id=data-edition-number, placeholder=
+INPUT: type=text, name=data[primary_author][first_name], id=data-primary-author-first-name, placeholder=First name
+INPUT: type=text, name=data[primary_author][last_name], id=data-primary-author-last-name, placeholder=Last name
+INPUT: type=text, name=data[contributors][0][first_name], id=data-contributors-0-first-name, placeholder=First name
+INPUT: type=text, name=data[contributors][0][last_name], id=data-contributors-0-last-name, placeholder=Last name
+INPUT: type=text, name=data[keywords][0], id=data-keywords-0, placeholder=
+INPUT: type=text, name=data[keywords][1], id=data-keywords-1, placeholder=
+INPUT: type=text, name=data[keywords][2], id=data-keywords-2, placeholder=
+INPUT: type=text, name=data[keywords][3], id=data-keywords-3, placeholder=
+INPUT: type=text, name=data[keywords][4], id=data-keywords-4, placeholder=
+INPUT: type=text, name=data[keywords][5], id=data-keywords-5, placeholder=
+INPUT: type=text, name=data[keywords][6], id=data-keywords-6, placeholder=
+SELECT: name=data[contributors][0][role], id=data-contributors-0-role-native
+SELECT: name=data[reading_interest_age][min], id=data-reading-interest-age-start-input-native
+SELECT: name=data[reading_interest_age][max], id=data-reading-interest-age-end-input-native
+SELECT: name=data[digital][home_marketplace], id=
+
+RADIO BUTTONS:
+RADIO: name=data-is-public-domain, id=non-public-domain, value=false
+RADIO: name=data-is-public-domain, id=public-domain, value=true
+RADIO: name=data[is_adult_content]-radio, id=, value=true
+RADIO: name=data[is_adult_content]-radio, id=, value=false
+
+BUTTONS:
+BUTTON: 'Add to series', class=a-button-text
+BUTTON: 'Remove', class=a-button-text
+BUTTON: 'Add Another', class=a-button-text
+BUTTON: 'Choose categories', class=a-button-text
+BUTTON: 'Save as Draft', class=a-button-text
+BUTTON: 'Save and Continue', class=a-button-text
