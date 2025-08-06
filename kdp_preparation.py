@@ -220,7 +220,7 @@ def main():
     """Main function to set up and run the automation"""
     
     # Configuration - Change this to 'metadata_test.csv' for testing
-    CSV_FILE = "metadata_test.csv"  # Change to "metadata_test.csv" for testing
+    CSV_FILE = "metadata_full.csv"  # Change to "metadata_test.csv" for testing
     OUTPUT_DIR = "./prepared_books"
     
     # Verify CSV file exists

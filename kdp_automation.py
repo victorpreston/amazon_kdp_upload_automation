@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """
-Complete Amazon KDP Automation System - FINAL WORKING VERSION
+Complete Amazon KDP Automation System - ULTIMATE VERSION
 WARNING: Use at your own risk - may violate Amazon's Terms of Service
 
-Fixed all navigation and form interaction issues for real KDP interface.
+COMPLETE COVERAGE:
+✅ Kindle eBook Details: Language, Title, Subtitle, Author, Description, Keywords, Publishing Rights, Adult Content, Categories  
+✅ Kindle eBook Content: Cover Upload, Manuscript Upload
+✅ Kindle eBook Pricing: Price Setting, Royalty Calculation
+✅ Book Publishing: Final publication with confirmation
+
+Now reads from prepared books folder created by kdp_preparation.py
+Fixed all form interaction issues including language autocomplete selection.
 """
 
 import os
@@ -33,7 +40,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Project version
-VERSION = "1.0.2"
+VERSION = "2.1.0"
 
 class KDPConfig:
     """Configuration management for KDP automation"""
@@ -71,7 +78,8 @@ class KDPConfig:
         }
         
         config['FILES'] = {
-            'data_file': 'metadata_full.csv',
+            'prepared_books_directory': './prepared_books',
+            'data_file': 'metadata_full.csv',  # Fallback if prepared books not found
             'output_directory': './processed_books',
             'log_directory': './logs',
             'session_file': './session_data.json'
@@ -296,21 +304,101 @@ class KDPAutomator:
         
         # Load book data
         self.load_books_data()
+        
+        # Load processed books tracking
+        self.load_processed_books_tracking()
     
-    def load_books_data(self):
-        """Load books data from CSV/Excel"""
-        data_file = self.config.get('FILES', 'data_file')
+    def load_processed_books_tracking(self):
+        """Load tracking of which prepared books have been processed"""
+        tracking_file = Path(self.config.get('FILES', 'log_directory', './logs')) / 'processed_books.json'
         
         try:
-            if data_file.endswith('.xlsx'):
-                self.books_data = pd.read_excel(data_file)
+            if tracking_file.exists():
+                with open(tracking_file, 'r') as f:
+                    processed_data = json.load(f)
+                    # Convert book directory names to set
+                    self.processed_books = set(processed_data.get('processed_directories', []))
+                    logging.info(f"Loaded tracking for {len(self.processed_books)} processed books")
             else:
-                self.books_data = pd.read_csv(data_file, sep=';')
+                self.processed_books = set()
+                logging.info("No previous processing tracking found, starting fresh")
+                
+        except Exception as e:
+            logging.warning(f"Could not load processed books tracking: {e}")
+            self.processed_books = set()
+    
+    def save_processed_books_tracking(self):
+        """Save tracking of processed books"""
+        tracking_file = Path(self.config.get('FILES', 'log_directory', './logs')) / 'processed_books.json'
+        
+        try:
+            tracking_data = {
+                'processed_directories': list(self.processed_books),
+                'last_updated': datetime.now().isoformat(),
+                'total_processed': len(self.processed_books)
+            }
             
-            logging.info(f"Loaded {len(self.books_data)} books from {data_file}")
+            with open(tracking_file, 'w') as f:
+                json.dump(tracking_data, f, indent=2)
+                
+            logging.info(f"Saved tracking for {len(self.processed_books)} processed books")
             
         except Exception as e:
-            logging.error(f"Failed to load books data: {e}")
+            logging.error(f"Could not save processed books tracking: {e}")
+    
+    def load_books_data(self):
+        """Load books data from prepared books folder"""
+        prepared_books_dir = Path(self.config.get('FILES', 'prepared_books_directory', './prepared_books'))
+        
+        try:
+            if not prepared_books_dir.exists():
+                logging.error(f"Prepared books directory not found: {prepared_books_dir}")
+                logging.error("Please run kdp_preparation.py first to prepare books")
+                raise FileNotFoundError(f"Prepared books directory not found: {prepared_books_dir}")
+            
+            # Find all book directories
+            book_dirs = [d for d in prepared_books_dir.iterdir() if d.is_dir() and d.name.startswith('book_')]
+            
+            if not book_dirs:
+                logging.error("No prepared book directories found")
+                logging.error("Please run kdp_preparation.py first to prepare books")
+                raise FileNotFoundError("No prepared book directories found")
+            
+            # Sort by book index (book_000_, book_001_, etc.)
+            book_dirs.sort(key=lambda x: x.name)
+            
+            # Load metadata from each book directory
+            books_data = []
+            for book_dir in book_dirs:
+                metadata_file = book_dir / 'metadata.json'
+                if metadata_file.exists():
+                    try:
+                        with open(metadata_file, 'r', encoding='utf-8') as f:
+                            metadata = json.load(f)
+                        
+                        # Add directory path for reference
+                        metadata['book_directory'] = str(book_dir)
+                        metadata['book_index'] = len(books_data)  # Use position as index
+                        
+                        books_data.append(metadata)
+                        logging.info(f"Loaded book: {metadata['title']}")
+                        
+                    except Exception as e:
+                        logging.warning(f"Failed to load metadata from {metadata_file}: {e}")
+                        continue
+                else:
+                    logging.warning(f"No metadata.json found in {book_dir}")
+            
+            if not books_data:
+                raise ValueError("No valid book metadata found in prepared books directory")
+            
+            # Convert to pandas DataFrame for compatibility with existing code
+            self.books_data = pd.DataFrame(books_data)
+            
+            logging.info(f"Loaded {len(self.books_data)} prepared books from {prepared_books_dir}")
+            
+        except Exception as e:
+            logging.error(f"Failed to load prepared books data: {e}")
             raise
     
     def setup_browser(self) -> webdriver.Chrome:
@@ -552,9 +640,8 @@ class KDPAutomator:
             
             # Look for form elements to confirm we're on the right page
             form_indicators = [
-                "//input[contains(@name, 'title') or contains(@id, 'title')]",
-                "//textarea[contains(@name, 'description') or contains(@id, 'description')]",
-                "//input[contains(@name, 'author') or contains(@id, 'author')]",
+                "//input[@id='data-title']",
+                "//input[@name='data[title]']",
                 "//*[contains(text(), 'Book Details')]",
                 "//*[contains(text(), 'Title')]"
             ]
@@ -639,336 +726,377 @@ class KDPAutomator:
         except Exception as e:
             logging.warning(f"Form readiness check failed: {e}")
             return True  # Continue anyway
-    
+
     def fill_book_details(self, book_data: pd.Series) -> bool:
-        """Fill in book details form - ULTIMATE FIXED VERSION"""
+        """Fill in book details form - COMPLETELY FIXED VERSION using exact form analysis selectors"""
         try:
             logging.info("Starting to fill book details...")
             
             # Wait for form to be fully ready
             self.wait_for_form_ready()
             
-            # Step 1: Set Language (if not already English)
+            # Step 0: Set Language FIRST (before other fields) using exact form analysis selector
             try:
-                if book_data['language'] != 'English':
-                    language_selectors = [
-                        "//select[contains(@name, 'language')]",
-                        "//select[contains(@id, 'language')]",
-                        "//select[contains(@aria-label, 'language')]"
-                    ]
+                if pd.notna(book_data['language']) and str(book_data['language']).lower() != 'english':
+                    language_to_set = str(book_data['language'])
+                    logging.info(f"Setting language to: {language_to_set}")
                     
-                    for selector in language_selectors:
-                        try:
-                            language_dropdown = Select(self.driver.find_element(By.XPATH, selector))
-                            language_dropdown.select_by_visible_text(book_data['language'])
-                            self.behavior.random_delay(1, 2)
-                            logging.info(f"Selected language: {book_data['language']}")
-                            break
-                        except (NoSuchElementException, Exception):
-                            continue
-            except Exception as e:
-                logging.warning(f"Could not set language: {e}")
-            
-            # Step 2: Fill Title - Based on actual form structure
-            title_filled = False
-            title_selectors = [
-                "//h3[contains(text(), 'Book Title')]/following-sibling::div//input",
-                "//div[contains(@class, 'book-title')]//input",
-                "//label[text()='Book Title']/following-sibling::input",
-                "//input[contains(@name, 'title')]",
-                "//input[contains(@id, 'title')]"
-            ]
-            
-            for attempt in range(3):  # Try up to 3 times
-                for selector in title_selectors:
-                    try:
-                        logging.info(f"Attempt {attempt + 1}: Trying title selector: {selector}")
-                        
-                        # Wait for element to be clickable
-                        title_field = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        
-                        # Scroll to element
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", title_field)
-                        time.sleep(1)
-                        
-                        # Check if element is enabled
-                        if not title_field.is_enabled():
-                            logging.warning("Title field is not enabled, waiting...")
-                            time.sleep(2)
-                            continue
-                        
-                        # Use safe_type method
-                        if self.behavior.safe_type(self.driver, title_field, book_data['title']):
-                            logging.info(f"Successfully filled title: {book_data['title']}")
-                            title_filled = True
-                            break
-                        
-                    except TimeoutException:
-                        logging.warning(f"Title selector timeout: {selector}")
-                        continue
-                    except ElementNotInteractableException:
-                        logging.warning(f"Title element not interactable: {selector}")
-                        time.sleep(1)
-                        continue
-                    except Exception as e:
-                        logging.warning(f"Title filling error with {selector}: {e}")
-                        continue
-                
-                if title_filled:
-                    break
+                    # From form analysis: aria_label="language-dropdown-editable-text", autocomplete input
+                    language_input = self.wait.until(EC.element_to_be_clickable(
+                        (By.XPATH, "//input[@aria-label='language-dropdown-editable-text']")
+                    ))
                     
-                # Wait between attempts
-                time.sleep(2)
-            
-            if not title_filled:
-                logging.error("Failed to fill title after all attempts")
-                return False
-            
-            # Step 3: Fill Subtitle (optional) - Based on screenshots
-            if pd.notna(book_data['subtitle']) and book_data['subtitle']:
-                subtitle_selectors = [
-                    "//h3[contains(text(), 'Book Title')]/following-sibling::div//input[contains(@placeholder, 'Subtitle') or position()=2]",
-                    "//div[contains(text(), 'Subtitle')]/following-sibling::div//input",
-                    "//input[contains(@name, 'subtitle')]",
-                    "//input[contains(@id, 'subtitle')]"
-                ]
-                
-                for selector in subtitle_selectors:
-                    try:
-                        subtitle_field = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", subtitle_field)
-                        time.sleep(0.5)
-                        
-                        if self.behavior.safe_type(self.driver, subtitle_field, book_data['subtitle']):
-                            logging.info(f"Filled subtitle: {book_data['subtitle']}")
-                            break
-                            
-                    except (TimeoutException, ElementNotInteractableException):
-                        continue
-                    except Exception as e:
-                        logging.warning(f"Subtitle error with {selector}: {e}")
-                        continue
-            
-            # Step 4: Fill Author Name - Split into First/Last name based on screenshots
-            author_filled = False
-            
-            # Try to fill First name field
-            first_name_selectors = [
-                "//input[@placeholder='First name']",
-                "//h3[contains(text(), 'Author')]/following-sibling::div//input[@placeholder='First name']",
-                "//div[contains(text(), 'Primary Author')]/following-sibling::div//input[@placeholder='First name']",
-                "//input[contains(@name, 'firstName')]",
-                "//input[contains(@id, 'firstName')]"
-            ]
-            
-            for selector in first_name_selectors:
-                try:
-                    first_name_field = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                    self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", first_name_field)
+                    # Clear the current value and set new language
+                    self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", language_input)
                     time.sleep(0.5)
                     
-                    # For first name, use full author name or split if contains space
-                    author_name = str(book_data['author'])
-                    if ' ' in author_name:
-                        first_name = author_name.split(' ')[0]
-                    else:
-                        first_name = author_name
+                    # Click to focus and activate autocomplete
+                    language_input.click()
+                    time.sleep(0.5)
                     
-                    if self.behavior.safe_type(self.driver, first_name_field, first_name):
-                        logging.info(f"Filled first name: {first_name}")
-                        
-                        # Try to fill Last name field if author has multiple parts
-                        if ' ' in author_name:
-                            last_name = ' '.join(author_name.split(' ')[1:])
-                            last_name_selectors = [
-                                "//input[@placeholder='Last name']",
-                                "//h3[contains(text(), 'Author')]/following-sibling::div//input[@placeholder='Last name']",
-                                "//input[contains(@name, 'lastName')]",
-                                "//input[contains(@id, 'lastName')]"
-                            ]
-                            
-                            for last_selector in last_name_selectors:
-                                try:
-                                    last_name_field = self.driver.find_element(By.XPATH, last_selector)
-                                    if self.behavior.safe_type(self.driver, last_name_field, last_name):
-                                        logging.info(f"Filled last name: {last_name}")
-                                        break
-                                except Exception:
-                                    continue
-                        
-                        author_filled = True
-                        break
-                        
-                except (TimeoutException, ElementNotInteractableException):
-                    continue
-                except Exception as e:
-                    logging.warning(f"Author error with {selector}: {e}")
-                    continue
-            
-            if not author_filled:
-                logging.warning("Could not fill author field")
-            
-            # Step 5: Fill Description - Rich text editor based on screenshots
-            description_selectors = [
-                "//h3[contains(text(), 'Description')]/following-sibling::div//iframe",  # Rich text editor iframe
-                "//div[contains(@class, 'description')]//iframe",
-                "//h3[contains(text(), 'Description')]/following-sibling::div//div[contains(@class, 'editor')]",  # Direct editor div
-                "//textarea[contains(@name, 'description')]",  # Fallback to textarea
-                "//div[contains(@contenteditable, 'true')]"  # Contenteditable div
-            ]
-            
-            if pd.notna(book_data['description_html']):
-                # Clean HTML from description
-                import re
-                clean_description = re.sub('<.*?>', '', book_data['description_html'])
-                
-                for selector in description_selectors:
-                    try:
-                        if 'iframe' in selector:
-                            # Handle rich text editor in iframe
-                            iframe = self.wait.until(EC.presence_of_element_located((By.XPATH, selector)))
-                            self.driver.switch_to.frame(iframe)
-                            
-                            # Look for body or contenteditable element inside iframe
-                            editor_selectors = [
-                                "//body[@contenteditable='true']",
-                                "//div[@contenteditable='true']",
-                                "//body"
-                            ]
-                            
-                            for editor_sel in editor_selectors:
-                                try:
-                                    editor_element = self.driver.find_element(By.XPATH, editor_sel)
-                                    if self.behavior.safe_type(self.driver, editor_element, clean_description):
-                                        logging.info("Filled description in rich text editor")
-                                        self.driver.switch_to.default_content()
-                                        break
-                                except Exception:
-                                    continue
-                            else:
-                                self.driver.switch_to.default_content()
-                                continue
-                            break
-                        else:
-                            # Handle regular text area or contenteditable div
-                            description_field = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                            self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", description_field)
-                            time.sleep(0.5)
-                            
-                            if self.behavior.safe_type(self.driver, description_field, clean_description):
-                                logging.info("Filled description")
+                    # Clear existing value completely
+                    language_input.clear()
+                    time.sleep(0.5)
+                    
+                    # Alternative method: Select all and delete
+                    language_input.send_keys(Keys.CONTROL + "a")
+                    language_input.send_keys(Keys.DELETE)
+                    time.sleep(0.5)
+                    
+                    # Type the new language slowly to trigger autocomplete
+                    for char in language_to_set:
+                        language_input.send_keys(char)
+                        time.sleep(0.1)
+                    
+                    # Wait for autocomplete dropdown to appear
+                    time.sleep(2)
+                    
+                    # Try to find and click the matching option in the dropdown
+                    dropdown_selectors = [
+                        f"//li[contains(text(), '{language_to_set}')]",
+                        f"//div[contains(text(), '{language_to_set}')]", 
+                        f"//span[contains(text(), '{language_to_set}')]",
+                        f"//*[contains(@class, 'ui-menu-item')][contains(text(), '{language_to_set}')]",
+                        f"//*[contains(@class, 'autocomplete')][contains(text(), '{language_to_set}')]"
+                    ]
+                    
+                    option_selected = False
+                    for selector in dropdown_selectors:
+                        try:
+                            dropdown_option = self.driver.find_element(By.XPATH, selector)
+                            if dropdown_option.is_displayed():
+                                dropdown_option.click()
+                                logging.info(f"Selected {language_to_set} from dropdown")
+                                option_selected = True
+                                time.sleep(1)
                                 break
-                            
-                    except (TimeoutException, ElementNotInteractableException):
-                        continue
-                    except Exception as e:
-                        logging.warning(f"Description error with {selector}: {e}")
-                        continue
-            
-            # Step 6: Fill Keywords - Based on screenshots showing two input fields
-            keywords_selectors = [
-                "//h3[contains(text(), 'Keywords')]/following-sibling::div//input[1]",  # First keyword field
-                "//div[contains(text(), 'Your Keywords')]/following-sibling::div//input[1]",
-                "//input[contains(@name, 'keywords')]",
-                "//input[contains(@id, 'keywords')]"
-            ]
-            
-            if pd.notna(book_data['keywords']):
-                # Split keywords if multiple, use first one for first field
-                keywords_text = str(book_data['keywords'])
-                if ';' in keywords_text:
-                    first_keyword = keywords_text.split(';')[0].strip()
-                else:
-                    first_keyword = keywords_text
-                
-                for selector in keywords_selectors:
-                    try:
-                        keywords_field = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", keywords_field)
+                        except NoSuchElementException:
+                            continue
+                    
+                    if not option_selected:
+                        # Fallback: try arrow keys and enter
+                        logging.info("Dropdown selection failed, trying arrow keys")
+                        language_input.send_keys(Keys.ARROW_DOWN)
                         time.sleep(0.5)
-                        
-                        if self.behavior.safe_type(self.driver, keywords_field, first_keyword):
-                            logging.info(f"Filled keywords: {first_keyword}")
-                            break
-                            
-                    except (TimeoutException, ElementNotInteractableException):
-                        continue
-                    except Exception as e:
-                        logging.warning(f"Keywords error with {selector}: {e}")
-                        continue
-            
-            # Step 7: Handle Publishing Rights - Required selection based on screenshots
-            try:
-                rights_selectors = [
-                    "//input[@type='radio'][following-sibling::text()[contains(., 'I own the copyright')]]",
-                    "//label[contains(text(), 'I own the copyright')]//input[@type='radio']",
-                    "//label[contains(text(), 'I own the copyright')]/preceding-sibling::input[@type='radio']",
-                    "//h3[contains(text(), 'Publishing Rights')]/following-sibling::div//input[@type='radio'][1]"
-                ]
-                
-                for selector in rights_selectors:
-                    try:
-                        rights_radio = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", rights_radio)
-                        time.sleep(0.5)
-                        
-                        if not rights_radio.is_selected():
-                            self.driver.execute_script("arguments[0].click();", rights_radio)
-                            logging.info("Selected 'I own the copyright'")
-                            time.sleep(1)
-                            break
-                    except Exception:
-                        continue
-            except Exception as e:
-                logging.warning(f"Could not set publishing rights: {e}")
-            
-            # Step 8: Handle Adult Content - Required selection based on screenshots  
-            try:
-                adult_no_selectors = [
-                    "//input[@type='radio'][following-sibling::text()[contains(., 'No')]]",
-                    "//label[contains(text(), 'No')]//input[@type='radio']",
-                    "//label[text()='No']/preceding-sibling::input[@type='radio']",
-                    "//h3[contains(text(), 'Primary Audience')]/following-sibling::div//input[@type='radio'][2]"  # Usually "No" is second option
-                ]
-                
-                for selector in adult_no_selectors:
-                    try:
-                        adult_radio = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", adult_radio)
-                        time.sleep(0.5)
-                        
-                        if not adult_radio.is_selected():
-                            self.driver.execute_script("arguments[0].click();", adult_radio)
-                            logging.info("Selected 'No' for adult content")
-                            time.sleep(1)
-                            break
-                    except Exception:
-                        continue
-            except Exception as e:
-                logging.warning(f"Could not set adult content option: {e}")
-            
-            # Step 9: Click "Save and Continue" to proceed to next step
-            try:
-                save_continue_selectors = [
-                    "//button[contains(text(), 'Save and Continue')]",
-                    "//input[@value='Save and Continue']",
-                    "//button[contains(@class, 'save-continue')]"
-                ]
-                
-                for selector in save_continue_selectors:
-                    try:
-                        save_btn = self.wait.until(EC.element_to_be_clickable((By.XPATH, selector)))
-                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", save_btn)
+                        language_input.send_keys(Keys.ENTER)
                         time.sleep(1)
                         
-                        save_btn.click()
-                        logging.info("Clicked 'Save and Continue' - proceeding to Content step")
-                        time.sleep(3)  # Wait for next page to load
+                        # Verify the selection worked
+                        current_value = language_input.get_attribute('value')
+                        if current_value.lower() != language_to_set.lower():
+                            logging.warning(f"Language selection may have failed. Expected: {language_to_set}, Got: {current_value}")
+                            
+                            # Last resort: try direct value setting
+                            try:
+                                self.driver.execute_script(f"arguments[0].value = '{language_to_set}';", language_input)
+                                # Trigger change event
+                                self.driver.execute_script("arguments[0].dispatchEvent(new Event('change', {bubbles: true}));", language_input)
+                                time.sleep(1)
+                                logging.info(f"Set language via JavaScript: {language_to_set}")
+                            except Exception as js_error:
+                                logging.error(f"JavaScript language setting failed: {js_error}")
+                        else:
+                            logging.info(f"Language successfully set to: {current_value}")
+                    
+                    # Final verification
+                    final_value = language_input.get_attribute('value')
+                    logging.info(f"Final language value: {final_value}")
+                    
+                else:
+                    logging.info("Language is English or not specified, keeping default")
+                    
+            except Exception as e:
+                logging.warning(f"Language setting failed: {e}")
+                # Continue anyway - language is not critical for upload
+            
+            # Step 1: Fill Title using exact selector from form analysis
+            title_filled = False
+            try:
+                # Use exact selector from form analysis: name="data[title]", id="data-title"
+                title_field = self.wait.until(EC.element_to_be_clickable((By.ID, "data-title")))
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", title_field)
+                time.sleep(1)
+                
+                if self.behavior.safe_type(self.driver, title_field, str(book_data['title'])):
+                    logging.info(f"Successfully filled title: {book_data['title']}")
+                    title_filled = True
+                else:
+                    logging.error("Failed to fill title")
+                    return False
+                    
+            except Exception as e:
+                logging.error(f"Title filling failed: {e}")
+                return False
+            
+            # Step 2: Fill Subtitle using exact selector from form analysis
+            if pd.notna(book_data['subtitle']) and book_data['subtitle']:
+                try:
+                    # Use exact selector: name="data[subtitle]", id="data-subtitle"
+                    subtitle_field = self.wait.until(EC.element_to_be_clickable((By.ID, "data-subtitle")))
+                    self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", subtitle_field)
+                    time.sleep(0.5)
+                    
+                    if self.behavior.safe_type(self.driver, subtitle_field, str(book_data['subtitle'])):
+                        logging.info(f"Filled subtitle: {book_data['subtitle']}")
+                        
+                except Exception as e:
+                    logging.warning(f"Subtitle filling failed: {e}")
+            
+            # Step 3: Fill Author Name using exact selectors from form analysis
+            author_name = str(book_data['author'])
+            try:
+                # Split author name for first/last name fields
+                if ' ' in author_name:
+                    first_name = author_name.split(' ')[0]
+                    last_name = ' '.join(author_name.split(' ')[1:])
+                else:
+                    first_name = author_name
+                    last_name = ""
+                
+                # Fill first name: id="data-primary-author-first-name"
+                first_name_field = self.wait.until(EC.element_to_be_clickable((By.ID, "data-primary-author-first-name")))
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", first_name_field)
+                time.sleep(0.5)
+                
+                if self.behavior.safe_type(self.driver, first_name_field, first_name):
+                    logging.info(f"Filled first name: {first_name}")
+                
+                # Fill last name if available: id="data-primary-author-last-name"
+                if last_name:
+                    last_name_field = self.driver.find_element(By.ID, "data-primary-author-last-name")
+                    if self.behavior.safe_type(self.driver, last_name_field, last_name):
+                        logging.info(f"Filled last name: {last_name}")
+                        
+            except Exception as e:
+                logging.warning(f"Author filling failed: {e}")
+            
+            # Step 4: Fill Description using iframe (from form analysis)
+            if pd.notna(book_data['description_html']):
+                try:
+                    # Clean HTML from description
+                    import re
+                    clean_description = re.sub('<.*?>', '', str(book_data['description_html']))
+                    
+                    # Handle iframe for rich text editor (class="cke_wysiwyg_frame cke_reset")
+                    try:
+                        iframe = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.cke_wysiwyg_frame")))
+                        self.driver.switch_to.frame(iframe)
+                        
+                        # Look for contenteditable body inside iframe
+                        editor_body = self.driver.find_element(By.TAG_NAME, "body")
+                        if editor_body:
+                            # Clear and type in the editor
+                            editor_body.clear()
+                            editor_body.send_keys(clean_description)
+                            logging.info("Filled description in rich text editor")
+                        
+                        # Switch back to main content
+                        self.driver.switch_to.default_content()
+                        
+                    except Exception as iframe_error:
+                        # Switch back to main content if iframe failed
+                        self.driver.switch_to.default_content()
+                        logging.warning(f"Rich text editor failed, trying hidden field: {iframe_error}")
+                        
+                        # Fallback: try to set the hidden description field directly
+                        try:
+                            description_hidden = self.driver.find_element(By.NAME, "data[description]")
+                            self.driver.execute_script("arguments[0].value = arguments[1];", description_hidden, clean_description)
+                            logging.info("Set description via hidden field")
+                        except Exception:
+                            logging.warning("Could not set description")
+                            
+                except Exception as e:
+                    logging.warning(f"Description handling failed: {e}")
+            
+            # Step 5: Fill Keywords using exact selectors from form analysis
+            if pd.notna(book_data['keywords']):
+                try:
+                    keywords_text = str(book_data['keywords'])
+                    keywords_list = [kw.strip() for kw in keywords_text.split(';')] if ';' in keywords_text else [keywords_text]
+                    
+                    # Fill up to 7 keyword fields (data-keywords-0 through data-keywords-6)
+                    for i, keyword in enumerate(keywords_list[:7]):
+                        try:
+                            keyword_field = self.driver.find_element(By.ID, f"data-keywords-{i}")
+                            if self.behavior.safe_type(self.driver, keyword_field, keyword):
+                                logging.info(f"Filled keyword {i}: {keyword}")
+                        except Exception:
+                            continue
+                            
+                except Exception as e:
+                    logging.warning(f"Keywords filling failed: {e}")
+            
+            # Step 6: Handle Publishing Rights using exact radio button from form analysis
+            try:
+                # Select "I own the copyright" - id="non-public-domain", value="false"
+                rights_radio = self.wait.until(EC.element_to_be_clickable((By.ID, "non-public-domain")))
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", rights_radio)
+                time.sleep(0.5)
+                
+                if not rights_radio.is_selected():
+                    self.driver.execute_script("arguments[0].click();", rights_radio)
+                    logging.info("Selected 'I own the copyright'")
+                    time.sleep(1)
+                    
+            except Exception as e:
+                logging.warning(f"Publishing rights selection failed: {e}")
+            
+            # Step 7: Handle Adult Content using exact radio button from form analysis
+            try:
+                # Select "No" for adult content - name="data[is_adult_content]-radio", value="false"
+                adult_radios = self.driver.find_elements(By.NAME, "data[is_adult_content]-radio")
+                for radio in adult_radios:
+                    if radio.get_attribute('value') == 'false':
+                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", radio)
+                        time.sleep(0.5)
+                        if not radio.is_selected():
+                            self.driver.execute_script("arguments[0].click();", radio)
+                            logging.info("Selected 'No' for adult content")
+                            time.sleep(1)
                         break
-                    except Exception:
+                        
+            except Exception as e:
+                logging.warning(f"Adult content selection failed: {e}")
+            
+            # Step 8: Handle Categories - REQUIRED FIELD - must select categories
+            try:
+                # Categories are required! The button should be enabled after other fields are filled
+                # Wait a moment for the button to potentially enable
+                time.sleep(2)
+                
+                categories_btn = self.wait.until(EC.presence_of_element_located((By.ID, "categories-modal-button")))
+                
+                # Scroll to categories section
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", categories_btn)
+                time.sleep(1)
+                
+                # Check if button is now enabled after filling other fields
+                if categories_btn.is_enabled():
+                    logging.info("Categories button is enabled, opening category selection")
+                    categories_btn.click()
+                    time.sleep(3)  # Wait for modal to open
+                    
+                    # Handle category selection modal using BISAC code
+                    if pd.notna(book_data['bisac']):
+                        bisac_code = str(book_data['bisac'])
+                        logging.info(f"Selecting category for BISAC: {bisac_code}")
+                        
+                        # Map common BISAC codes to category selections
+                        self.select_category_by_bisac(bisac_code)
+                    else:
+                        # Default category selection if no BISAC
+                        self.select_default_category()
+                    
+                    # Save category selection
+                    self.save_category_selection()
+                    
+                else:
+                    # Try to force enable the button or use alternative approach
+                    logging.warning("Categories button still disabled, trying to force enable")
+                    
+                    # Try clicking anyway using JavaScript
+                    try:
+                        self.driver.execute_script("arguments[0].removeAttribute('disabled');", categories_btn)
+                        self.driver.execute_script("arguments[0].click();", categories_btn)
+                        time.sleep(3)
+                        
+                        if pd.notna(book_data['bisac']):
+                            bisac_code = str(book_data['bisac'])
+                            self.select_category_by_bisac(bisac_code)
+                        else:
+                            self.select_default_category()
+                        
+                        self.save_category_selection()
+                        
+                    except Exception as force_error:
+                        logging.error(f"Could not force category selection: {force_error}")
+                        return False
+                        
+            except Exception as e:
+                logging.error(f"Categories handling failed: {e}")
+                logging.error("Categories are required - cannot proceed without them")
+                return False
+            
+            # Step 9: Verify Categories are Selected (Critical Check)
+            try:
+                # Wait a moment and check if categories error is gone
+                time.sleep(2)
+                
+                # Look for the category error message
+                category_error_selectors = [
+                    "//*[contains(text(), 'Add a category')]", 
+                    "//*[contains(text(), 'category') and contains(@class, 'error')]",
+                    "//*[contains(@class, 'error') and contains(text(), 'book')]"
+                ]
+                
+                category_error_found = False
+                for selector in category_error_selectors:
+                    try:
+                        error_element = self.driver.find_element(By.XPATH, selector)
+                        if error_element.is_displayed():
+                            category_error_found = True
+                            logging.error("Category error still present - categories not properly selected")
+                            break
+                    except NoSuchElementException:
                         continue
+                
+                if category_error_found:
+                    logging.error("CRITICAL: Categories are required but not selected. Cannot proceed.")
+                    # Try one more time to handle categories
+                    try:
+                        self.handle_categories_emergency(book_data)
+                    except:
+                        logging.error("Emergency category handling also failed")
+                        return False
+                else:
+                    logging.info("Categories successfully selected - no error message found")
+                    
+            except Exception as e:
+                logging.warning(f"Category verification failed: {e}")
+            
+            # Step 10: Click "Save and Continue" to proceed to next step
+            try:
+                # From form analysis: id="save-and-continue-announce"
+                save_btn = self.wait.until(EC.element_to_be_clickable((By.ID, "save-and-continue-announce")))
+                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", save_btn)
+                time.sleep(1)
+                
+                save_btn.click()
+                logging.info("Clicked 'Save and Continue' - proceeding to Content step")
+                time.sleep(3)  # Wait for next page to load
+                
             except Exception as e:
                 logging.warning(f"Could not click Save and Continue: {e}")
+                # Try alternative selector
+                try:
+                    save_btn_alt = self.driver.find_element(By.XPATH, "//button[contains(text(), 'Save and Continue')]")
+                    save_btn_alt.click()
+                    logging.info("Clicked Save and Continue with alternative selector")
+                    time.sleep(3)
+                except Exception:
+                    logging.error("Failed to proceed to next step")
+                    return False
             
             logging.info("Successfully completed filling book details")
             return True
@@ -1008,7 +1136,7 @@ class KDPAutomator:
             if not content_page_found:
                 logging.warning("Could not confirm Content step page")
             
-            # Upload cover - try multiple selectors
+            # Upload cover - using prepared book files
             cover_selectors = [
                 "//input[@type='file'][contains(@accept, 'image')]",
                 "//input[@type='file'][contains(@name, 'cover')]",
@@ -1016,7 +1144,16 @@ class KDPAutomator:
                 "//div[contains(text(), 'cover')]/following-sibling::div//input[@type='file']"
             ]
             
-            cover_path = self.clean_file_path(book_data['eBook-Cover'])
+            manuscript_selectors = [
+                "//input[@type='file'][contains(@accept, '.epub')]",
+                "//input[@type='file'][contains(@name, 'manuscript')]",
+                "//input[@type='file'][contains(@id, 'manuscript')]",
+                "//input[@type='file'][not(contains(@accept, 'image'))]",
+                "//div[contains(text(), 'manuscript')]/following-sibling::div//input[@type='file']"
+            ]
+            
+            # Upload cover - using prepared book files
+            cover_path = self.get_book_file_path(book_data, 'ebook_cover')
             if cover_path and os.path.exists(cover_path):
                 cover_upload = None
                 for selector in cover_selectors:
@@ -1030,22 +1167,14 @@ class KDPAutomator:
                 if cover_upload:
                     cover_upload.send_keys(cover_path)
                     self.behavior.random_delay(3, 5)
-                    logging.info("Cover uploaded successfully")
+                    logging.info(f"Cover uploaded successfully: {os.path.basename(cover_path)}")
                 else:
                     logging.warning("Could not find cover upload field")
             else:
-                logging.warning(f"Cover file not found: {cover_path}")
+                logging.warning(f"Cover file not found or not available")
             
-            # Upload manuscript (epub) - try multiple selectors
-            manuscript_selectors = [
-                "//input[@type='file'][contains(@accept, '.epub')]",
-                "//input[@type='file'][contains(@name, 'manuscript')]",
-                "//input[@type='file'][contains(@id, 'manuscript')]",
-                "//input[@type='file'][not(contains(@accept, 'image'))]",
-                "//div[contains(text(), 'manuscript')]/following-sibling::div//input[@type='file']"
-            ]
-            
-            epub_path = self.clean_file_path(book_data['epub'])
+            # Upload manuscript (epub) - using prepared book files
+            epub_path = self.get_book_file_path(book_data, 'epub')
             if epub_path and os.path.exists(epub_path):
                 manuscript_upload = None
                 for selector in manuscript_selectors:
@@ -1059,11 +1188,11 @@ class KDPAutomator:
                 if manuscript_upload:
                     manuscript_upload.send_keys(epub_path)
                     self.behavior.random_delay(5, 8)
-                    logging.info("Manuscript uploaded successfully")
+                    logging.info(f"Manuscript uploaded successfully: {os.path.basename(epub_path)}")
                 else:
                     logging.warning("Could not find manuscript upload field")
             else:
-                logging.warning(f"EPUB file not found: {epub_path}")
+                logging.warning(f"EPUB file not found or not available")
             
             # Click "Save and Continue" to proceed to Pricing
             try:
@@ -1120,8 +1249,8 @@ class KDPAutomator:
             if not pricing_page_found:
                 logging.warning("Could not confirm Pricing step page")
             
-            # Set price (convert from cents to dollars)
-            price_usd = book_data['price_ebook_usd'] / 100
+            # Set price - already converted to dollars in prepared metadata
+            price_usd = book_data['price_ebook_usd']  # Already in dollars from prepared metadata
             
             price_selectors = [
                 "//input[contains(@name, 'price')]",
@@ -1261,50 +1390,106 @@ class KDPAutomator:
             logging.error(f"Failed to publish book: {e}")
             return False
     
+    def get_book_file_path(self, book_data: pd.Series, file_type: str) -> str:
+        """Get file path from prepared book metadata"""
+        try:
+            # book_data now contains the metadata.json data
+            files = book_data.get('files', {})
+            
+            # Map file types
+            file_mapping = {
+                'cover': 'ebook_cover',
+                'ebook_cover': 'ebook_cover', 
+                'epub': 'epub',
+                'manuscript': 'epub',
+                'docx': 'docx'
+            }
+            
+            mapped_type = file_mapping.get(file_type, file_type)
+            file_path = files.get(mapped_type)
+            
+            if file_path and os.path.exists(file_path):
+                logging.info(f"Found {file_type} file: {file_path}")
+                return file_path
+            else:
+                logging.warning(f"File not found for {file_type}: {file_path}")
+                return None
+                
+        except Exception as e:
+            logging.error(f"Error getting file path for {file_type}: {e}")
+            return None
+    
     def clean_file_path(self, file_path):
-        """Clean file path by removing extra quotes"""
+        """Clean file path - now handles prepared book paths"""
         if file_path and isinstance(file_path, str):
-            return file_path.strip().strip('"""').strip('"')
+            # Prepared book paths are already clean, just return as-is
+            return file_path.strip()
         return file_path
     
     def process_single_book(self, book_index: int) -> bool:
-        """Process a single book upload"""
+        """Process a single book upload using prepared book data - COMPLETE 3-STEP FLOW"""
         book_data = self.books_data.iloc[book_index]
+        book_directory = book_data['book_directory']
         
-        logging.info(f"Starting upload for book: {book_data['title']}")
+        logging.info("="*60)
+        logging.info(f"STARTING COMPLETE KDP UPLOAD PROCESS")
+        logging.info(f"Book: {book_data['title']}")
+        logging.info(f"Author: {book_data['author']}")
+        logging.info(f"Language: {book_data['language']}")
+        logging.info(f"Directory: {book_directory}")
+        logging.info("="*60)
         
         try:
-            # Navigate to create book
+            # STEP 1: Navigate to create book form
+            logging.info("STEP 1: Navigating to book creation form...")
             if not self.navigate_to_create_book():
-                logging.error("Failed to navigate to create book form")
+                logging.error("STEP 1 FAILED: Could not navigate to create book form")
                 return False
+            logging.info("STEP 1 COMPLETED: Successfully navigated to form")
             
-            # Fill book details
+            # STEP 2: Fill eBook Details (including language, categories, etc.)
+            logging.info("STEP 2: Filling eBook Details (titles, author, description, categories)...")
             if not self.fill_book_details(book_data):
-                logging.error("Failed to fill book details")
+                logging.error("STEP 2 FAILED: Could not fill book details")
                 return False
+            logging.info("STEP 2 COMPLETED: eBook Details filled and saved")
             
-            # Upload files
+            # STEP 3: Upload eBook Content (cover + manuscript)
+            logging.info("STEP 3: Uploading eBook Content (cover and manuscript files)...")
             if not self.upload_book_files(book_data):
-                logging.warning("File uploads had issues but continuing...")
-            
-            # Set pricing
-            if not self.set_pricing(book_data):
-                logging.warning("Pricing setup had issues but continuing...")
-            
-            # Publish book
-            if not self.publish_book():
-                logging.error("Failed to publish book")
+                logging.error("STEP 3 FAILED: File uploads failed")
                 return False
+            logging.info("STEP 3 COMPLETED: eBook Content uploaded")
             
-            # Mark as processed
-            self.processed_books.add(book_index)
+            # STEP 4: Set eBook Pricing
+            logging.info("STEP 4: Setting eBook Pricing...")
+            if not self.set_pricing(book_data):
+                logging.error("STEP 4 FAILED: Pricing setup failed")
+                return False
+            logging.info("STEP 4 COMPLETED: eBook Pricing set")
             
-            logging.info(f"Successfully uploaded book: {book_data['title']}")
+            # STEP 5: Publish the book
+            logging.info("STEP 5: Publishing the book...")
+            if not self.publish_book():
+                logging.error("STEP 5 FAILED: Book publication failed")
+                return False
+            logging.info("STEP 5 COMPLETED: Book published successfully!")
+            
+            # Mark as processed using directory name
+            self.processed_books.add(os.path.basename(book_directory))
+            self.save_processed_books_tracking()
+            
+            logging.info("="*60)
+            logging.info(f"SUCCESS: Complete upload process finished for '{book_data['title']}'")
+            logging.info("All 5 steps completed: Navigation → Details → Content → Pricing → Publishing")
+            logging.info("="*60)
             return True
             
         except Exception as e:
-            logging.error(f"Failed to process book {book_data['title']}: {e}")
+            logging.error("="*60)
+            logging.error(f"CRITICAL ERROR in book upload process: {e}")
+            logging.error(f"Failed book: {book_data['title']}")
+            logging.error("="*60)
             return False
     
     def process_daily_batch(self):
@@ -1358,13 +1543,21 @@ class KDPAutomator:
                     logging.error(f"Error closing browser: {e}")
     
     def get_next_books_to_process(self, count: int) -> List[int]:
-        """Get next books to process"""
+        """Get next books to process from prepared books"""
         available_books = []
+        
         for i in range(len(self.books_data)):
-            if i not in self.processed_books:
+            book_data = self.books_data.iloc[i]
+            book_directory = book_data['book_directory']
+            book_dir_name = os.path.basename(book_directory)
+            
+            # Check if this book directory has been processed
+            if book_dir_name not in self.processed_books:
                 available_books.append(i)
                 if len(available_books) >= count:
                     break
+        
+        logging.info(f"Found {len(available_books)} unprocessed books, returning {min(count, len(available_books))}")
         return available_books
     
     def run_scheduler(self):
@@ -1375,9 +1568,12 @@ class KDPAutomator:
         
         print(f"KDP Automation System v{VERSION}")
         print("=" * 50)
+        print(f"Reading from: Prepared Books Directory")
         print(f"Upload time: {upload_time}")
         print(f"Books per day: {self.config.getint('AUTOMATION', 'books_per_day', 3)}")
-        print(f"Total books loaded: {len(self.books_data)}")
+        print(f"Total prepared books: {len(self.books_data)}")
+        print(f"Already processed: {len(self.processed_books)}")
+        print(f"Remaining books: {len(self.books_data) - len(self.processed_books)}")
         print("=" * 50)
         print("Press Ctrl+C to stop")
         
@@ -1402,6 +1598,14 @@ def main():
         # Check if configuration is complete
         if not config.get('KDP', 'email') or not config.get('KDP', 'password'):
             print("Please configure your KDP credentials in config.ini")
+            return
+        
+        # Check if prepared books directory exists
+        prepared_books_dir = Path(config.get('FILES', 'prepared_books_directory', './prepared_books'))
+        if not prepared_books_dir.exists():
+            print(f"Prepared books directory not found: {prepared_books_dir}")
+            print("Please run kdp_preparation.py first to prepare your books")
+            print("Example: python kdp_preparation.py")
             return
         
         # Initialize automator
