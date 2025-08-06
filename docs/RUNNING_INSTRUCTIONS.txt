@@ -1,0 +1,80 @@
+KDP Automation System - Running Instructions
+===========================================
+
+1. SYSTEM REQUIREMENTS
+---------------------
+- Windows 10 or later
+- Google Chrome browser installed (latest version)
+- Stable internet connection
+- At least 2GB of free disk space
+
+2. INITIAL SETUP
+---------------
+A. First-Time Setup:
+1. Download the release package (ZIP file)
+2. Extract all files to a folder on your computer
+3. Open the 'config.ini' file and configure:
+   - Your KDP login credentials
+   - Chrome driver path (if not using auto-download)
+   - Any other preferences
+
+B. Required Files:
+Ensure these files are in the same folder as the executables:
+- config.ini (configuration file)
+- metadata_full.csv (your book metadata)
+- README.md (documentation)
+
+3. RUNNING THE SYSTEM
+--------------------
+There are two ways to run the system:
+
+A. FULL PROCESS (Recommended):
+- Double-click 'run_kdp_full_process.bat'
+- This will:
+  1. Run KDP_Preparation.exe to organize your book files
+  2. Then run KDP_Automation.exe to upload them to KDP
+
+B. MANUAL PROCESS:
+1. Preparation Phase:
+   - Run 'KDP_Preparation.exe'
+   - This organizes your books into the 'prepared_books' folder
+   - Check the output and logs if needed
+
+2. Upload Phase:
+   - Run 'KDP_Automation.exe'
+   - This will upload the prepared books to KDP
+
+4. SCHEDULED OPERATION
+---------------------
+The system is designed to:
+- Automatically process 3 books per day at 9:00 AM
+- You can modify this schedule by editing:
+  - In kdp_preparation.py: schedule.every().day.at("09:00")
+  - In kdp_automation.py: The scheduling configuration
+
+5. TROUBLESHOOTING
+-----------------
+Common Issues:
+- Chrome driver mismatch: Update Chrome browser
+- Login failures: Check credentials in config.ini
+- File not found: Verify metadata_full.csv exists
+
+Log Files:
+- Check the 'logs' folder for detailed error information
+- Two log files are created:
+  - kdp_preparation_YYYYMMDD.log
+  - kdp_automation_YYYYMMDD.log
+
+6. IMPORTANT NOTES
+-----------------
+- The system will pause after preparation to allow manual verification
+- Never close the console window while processes are running
+- For large libraries, processing may take several hours
+- Always backup your files before running the automation
+
+7. SUPPORT
+---------
+you can always reach out in the case of any issues arising from the script or the automation flow.
+
+Version: 1.0.0
+Last Updated: 06/08/2025

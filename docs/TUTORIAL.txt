@@ -1,0 +1,185 @@
+KDP Automation System - Complete Master Guide
+============================================
+
+This guide provides a complete overview of the KDP Automation System, covering system requirements, setup, build process, execution, configuration, troubleshooting, and maintenance.
+
+1. System Requirements
+----------------------
+To ensure the smooth operation of the KDP Automation System, please meet the following requirements:
+
+*   Operating System: Windows 10/11 or macOS 12+
+*   Python: Python 3.8+ (64-bit)
+*   Browser: Google Chrome (latest version)
+*   Disk Space: At least 2GB of free disk space
+*   Internet: Stable internet connection
+
+2. Initial Setup
+----------------
+
+A. For End Users:
+1.  Download & Extract:
+    *   Download the release package (ZIP file).
+    *   Extract all files to a dedicated folder on your computer.
+2.  Configure `config.ini`:
+    *   Open the `config.ini` file located in the extracted folder.
+    *   Refer to Section 5: `config.ini` Details for comprehensive configuration instructions.
+3.  Required Files:
+    *   Ensure the following files are present in the same folder as the executables:
+        *   `config.ini` (your configuration file)
+        *   `metadata_full.csv` (your book metadata)
+        *   `README.md` (documentation)
+
+B. For Developers:
+1.  Setup Virtual Environment:
+    *   Open your terminal or command prompt in the project's root folder.
+    *   Create a virtual environment:
+        python -m venv venv
+    *   Activate the virtual environment:
+        *   Windows:
+            .\venv\Scripts\activate
+        *   Mac/Linux:
+            source venv/bin/activate
+2.  Install Requirements:
+    *   With the virtual environment activated, install all necessary dependencies:
+        pip install -r requirements.txt
+3.  IDE Setup (Optional):
+    *   For PyCharm:
+        1.  Go to File > Settings > Project > Python Interpreter.
+        2.  Click the gear icon and select Add.
+        3.  Choose "Existing environment" and point to venv/Scripts/python.exe.
+    *   For VSCode:
+        1.  Press Ctrl+Shift+P (or Cmd+Shift+P on Mac).
+        2.  Type "Python: Select Interpreter" and choose the one from ./venv/Scripts/.
+
+3. Build Process
+----------------
+The build process compiles the Python scripts into executable files.
+
+1.  Activate Virtual Environment: Ensure your virtual environment is activated (see Section 2.B.1).
+2.  Run Build Script:
+    python build.py
+3.  Wait for Completion: The process may take a few minutes.
+4.  Check Output Files:
+    *   After the build completes, check the `/dist/` folder for:
+        *   `KDP_Preparation.exe` (File preparation tool)
+        *   `KDP_Automation.exe` (Upload tool)
+    *   The `/release/` folder will contain the ready-to-use package:
+        *   `KDP_Preparation.exe`
+        *   `KDP_Automation.exe`
+        *   `run_kdp_full_process.bat` (Batch file to run both tools sequentially)
+        *   `config.ini`
+        *   `metadata_full.csv`
+
+4. Execution Flow
+-----------------
+There are three ways to run the KDP Automation System:
+
+A. Automated Mode (Recommended for End Users)
+This mode runs both the preparation and automation steps sequentially.
+
+1.  Navigate to the `/release/` folder.
+2.  Double-click `run_kdp_full_process.bat`.
+3.  The system will automatically:
+    1.  Run `KDP_Preparation.exe` to organize your book files.
+    2.  Then run `KDP_Automation.exe` to upload them to KDP.
+    3.  The system will pause when complete.
+
+B. Manual Mode
+This allows you to run the preparation and upload phases separately.
+
+1.  Preparation Phase:
+    *   Run `KDP_Preparation.exe`.
+    *   This organizes your books into the `/prepared_books/` folder.
+    *   You can check the output and logs if needed before proceeding.
+2.  Upload Phase:
+    *   Run `KDP_Automation.exe`.
+    *   This will upload the prepared books to KDP.
+
+C. Development Mode (Running from Source)
+For developers who want to run the scripts directly from the source code.
+
+1.  Activate Virtual Environment: Ensure your virtual environment is activated (see Section 2.B.1).
+2.  Run Preparation Script:
+    python kdp_preparation.py
+3.  Run Automation Script:
+    python kdp_automation.py
+
+5. `config.ini` Details
+-----------------------
+The `config.ini` file is crucial for providing your KDP login credentials. Open it with a text editor to configure.
+
+[Credentials]
+email = your@kdp.email
+password = your_password
+
+How to Add Details to `config.ini`:
+*   `[Credentials]` Section:
+    *   `email`: Enter your Amazon KDP login email address.
+    *   `password`: Enter your Amazon KDP password.
+
+You only need to edit these two fields. All other settings are pre-configured for optimal performance.
+
+6. Scheduled Operation
+----------------------
+The system is designed to process books automatically.
+*   Default Schedule: The system is configured to automatically process 3 books per day at 9:00 AM.
+*   Modifying the Schedule: You can modify this schedule by editing the following lines in the respective Python scripts (for developers):
+    *   In `kdp_preparation.py`: Look for `schedule.every().day.at("09:00")`
+    *   In `kdp_automation.py`: Adjust the scheduling configuration as needed.
+
+7. Troubleshooting
+------------------
+
+A. Common Errors
+1.  Chrome Version Mismatch:
+    *   Solution: Update your Google Chrome browser to the latest version, or set `auto_driver = yes` in `config.ini`.
+2.  Login Failures:
+    *   Solution: Check if 2-Factor Authentication (2FA) is enabled on your KDP account (it might interfere), and verify your email and password in `config.ini`.
+3.  File Errors (CSV/Paths):
+    *   Solution: Validate the format of your `metadata_full.csv` file and ensure all file paths specified in the CSV and `config.ini` are correct and accessible.
+4.  Build Failures:
+    *   Solution: Ensure you have Python 3.8+ installed.
+5.  Executables Don't Run (Windows):
+    *   Solution: Right-click the executable, go to `Properties`, and click `Unblock` if available.
+6.  Scripts Fail (Development Mode):
+    *   Solution:
+        *   Verify your virtual environment is activated.
+        *   Confirm all requirements are installed (`pip install -r requirements.txt`).
+        *   Ensure `config.ini` exists with proper settings.
+        *   Check that `metadata_full.csv` exists in the root folder.
+
+B. Log Files
+Detailed error information and system activity are recorded in log files located in the `/logs/` folder:
+
+*   `/logs/kdp_preparation_[date].log`
+*   `/logs/kdp_automation_[date].log`
+*   `/logs/chromedriver.log`
+
+Always check these logs for specific error messages when troubleshooting.
+
+8. Maintenance
+--------------
+*   Update `metadata_full.csv`: Update your `metadata_full.csv` weekly with new book data.
+*   Rebuild After Chrome Updates: It's recommended to rebuild the executables after major Google Chrome updates to ensure driver compatibility.
+*   Monitor `/logs/` Folder: Regularly check the log files for any warnings or errors.
+*   Backup `config.ini`: Keep a backup of your `config.ini` file.
+
+9. Important Notes
+------------------
+*   The system will pause after the preparation phase in manual mode to allow for manual verification of prepared files.
+*   Never close the console window while processes are running, as this will interrupt the automation.
+*   For large libraries, the processing and upload may take several hours.
+*   Always back up your original book files and metadata before running the automation.
+*   The first-time setup may take 5-10 minutes. Subsequent runs will be faster.
+
+
+10. Support
+-----------
+For any issues arising from the script or the automation flow, you can always reach out for support.
+
+*   Documentation: Refer to the `/docs/` folder for additional documentation.
+
+12. Version Information
+-----------------------
+*   Version: 1.1.0
+*   Last Updated: 2025-08-06

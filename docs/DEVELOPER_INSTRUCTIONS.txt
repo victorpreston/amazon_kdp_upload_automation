@@ -1,0 +1,58 @@
+KDP Automation System - Developer Setup Guide
+==========================================
+
+1. SETUP VIRTUAL ENVIRONMENT
+---------------------------
+
+1. Open terminal in project folder
+2. Create virtual environment:
+   python -m venv venv
+3. Activate it:
+   Windows: .\venv\Scripts\activate
+   Mac/Linux: source venv/bin/activate
+
+2. INSTALL REQUIREMENTS
+-----------------------
+pip install -r requirements.txt
+
+3. RUN SCRIPTS MANUALLY
+----------------------
+
+A. Run Preparation Script:
+python kdp_preparation.py
+
+B. Run Automation Script:
+python kdp_automation.py
+
+4. PYCHARM/VSCODE SETUP
+----------------------
+
+For PyCharm:
+1. File > Settings > Project > Python Interpreter
+2. Click gear icon > Add
+3. Select "Existing environment"
+4. Point to: venv/Scripts/python.exe
+
+For VSCode:
+1. Ctrl+Shift+P > "Python: Select Interpreter"
+2. Choose the one from ./venv/Scripts/
+
+5. TROUBLESHOOTING
+-----------------
+- If scripts fail, check:
+  1. Virtual env is activated
+  2. All requirements installed
+  3. config.ini exists with proper settings
+  4. metadata_full.csv exists in root folder
+
+6. CLEANUP
+---------
+To deactivate virtual env:
+deactivate
+
+7. SUPPORT
+---------
+you can always reach out in the case of any issues arising from the script or the automation flow.
+
+Version: 1.0.0
+Last Updated: 06/08/2025

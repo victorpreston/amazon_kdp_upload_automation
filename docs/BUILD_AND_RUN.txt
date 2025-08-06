@@ -1,0 +1,60 @@
+KDP Automation System - Complete Build & Run Guide
+
+1. BUILD INSTRUCTIONS
+--------------------
+1. Install Python 3.8+ from python.org
+2. Open Command Prompt in project folder
+3. Create virtual environment: python -m venv venv
+4. Activate it: .\venv\Scripts\activate
+5. Install requirements: pip install -r requirements.txt
+6. Run build: python build.py
+
+2. OUTPUT FILES LOCATION
+-----------------------
+After build completes check:
+- /dist/ folder has:
+  * KDP_Preparation.exe (File preparation tool)
+  * KDP_Automation.exe (Upload tool)
+- /release/ folder has ready-to-use package:
+  * Both executables
+  * run_kdp_full_process.bat (Runs both tools sequentially)
+  * config.ini (Configuration file)
+  * metadata_full.csv (Your book data)
+
+3. RUNNING THE SYSTEM
+--------------------
+Option A - Full Automated Process:
+1. Navigate to /release/ folder
+2. Double-click run_kdp_full_process.bat
+3. System will:
+   - First prepare files
+   - Then upload to KDP
+   - Pause when complete
+
+Option B - Run Tools Separately:
+1. Run KDP_Preparation.exe first
+2. Check prepared files in /prepared_books/
+3. Then run KDP_Automation.exe
+
+4. TROUBLESHOOTING
+-----------------
+- If build fails: Check Python version is 3.8+
+- If executables don't run: Right-click > Properties > Unblock
+- Chrome errors: Update Chrome browser to latest version
+- Always check /logs/ folder for error details
+
+5. DEVELOPMENT MODE
+------------------
+To run from source:
+1. Activate venv: .\venv\Scripts\activate
+2. Run preparation: python kdp_preparation.py
+3. Run automation: python kdp_automation.py
+
+Note: First time setup may take 5-10 minutes. Subsequent runs will be faster. Keep your metadata_full.csv updated for new books.
+
+6. SUPPORT
+---------
+you can always reach out in the case of any issues arising from the script or the automation flow.
+
+Version: 1.0.0
+Last Updated: 06/08/2025
