@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
-"""
-Build script for KDP Automation System
-Compiles the Python application into a standalone executable
-"""
+"""Build script for KDP Automation System
+Compiles both preparation and automation scripts into standalone executables"""
 
 import os
 import sys
@@ -24,41 +22,41 @@ def clean_build_dirs():
         spec_file.unlink()
         print(f"Removed {spec_file}")
 
-def create_spec_file():
-    """Create PyInstaller spec file with custom configuration"""
-    spec_content = '''
-# -*- mode: python ; coding: utf-8 -*-
-
-block_cipher = None
-
-a = Analysis(
-    ['kdp_automation.py'],
-    pathex=[],
-    binaries=[],
-    datas=[
-        ('config.ini', '.'),
-        ('README.md', '.'),
-    ],
-    hiddenimports=[
-        'selenium',
-        'selenium.webdriver',
-        'selenium.webdriver.chrome',
-        'selenium.webdriver.chrome.service',
-        'selenium.webdriver.common',
-        'selenium.webdriver.support',
+def create_spec_files():
+    """Create PyInstaller spec files with custom configuration for both scripts"""
+    # Common hidden imports
+    common_hidden_imports = [
         'pandas',
         'openpyxl',
         'schedule',
-        'configparser',
         'json',
         'logging',
         'datetime',
         'pathlib',
-        'requests',
-        'urllib3',
-    ],
+        'shutil',
+        'os',
+        'time'
+    ]
+    
+    # Common datas
+    common_datas = [
+        ('config.ini', '.'),
+        ('README.md', '.'),
+        ('metadata_full.csv', '.')
+    ]
+    
+    # Create spec for kdp_preparation.py
+    prep_spec = f'''# -*- mode: python ; coding: utf-8 -*-
+block_cipher = None
+
+a = Analysis(
+    ['kdp_preparation.py'],
+    pathex=[],
+    binaries=[],
+    datas={common_datas},
+    hiddenimports={common_hidden_imports},
     hookspath=[],
-    hooksconfig={},
+    hooksconfig={{}},
     runtime_hooks=[],
     excludes=[],
     win_no_prefer_redirects=False,
@@ -66,7 +64,61 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='KDP_Preparation',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon='icon.ico' if os.path.exists('icon.ico') else None,
+)
+'''
+
+    # Create spec for kdp_automation.py (similar to your original)
+    auto_spec = f'''# -*- mode: python ; coding: utf-8 -*-
+block_cipher = None
+
+a = Analysis(
+    ['kdp_automation.py'],
+    pathex=[],
+    binaries=[],
+    datas={common_datas},
+    hiddenimports={common_hidden_imports + [
+        'selenium',
+        'selenium.webdriver',
+        'selenium.webdriver.chrome',
+        'selenium.webdriver.chrome.service',
+        'selenium.webdriver.common',
+        'selenium.webdriver.support',
+        'requests',
+        'urllib3',
+        'configparser'
+    ]},
+    hookspath=[],
+    hooksconfig={{}},
+    runtime_hooks=[],
+    excludes=[],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -92,11 +144,14 @@ exe = EXE(
     icon='icon.ico' if os.path.exists('icon.ico') else None,
 )
 '''
+
+    with open('kdp_preparation.spec', 'w') as f:
+        f.write(prep_spec.strip())
     
     with open('kdp_automation.spec', 'w') as f:
-        f.write(spec_content.strip())
+        f.write(auto_spec.strip())
     
-    print("Created PyInstaller spec file")
+    print("Created PyInstaller spec files for both scripts")
 
 def install_requirements():
     """Install required packages"""
@@ -110,11 +165,19 @@ def install_requirements():
         return False
     return True
 
-def build_executable():
-    """Build the executable using PyInstaller"""
-    print("Building executable...")
+def build_executables():
+    """Build both executables using PyInstaller"""
+    print("Building executables...")
     try:
-        # Use the spec file for more control
+        # Build preparation script
+        subprocess.run([
+            'pyinstaller',
+            '--clean',
+            '--noconfirm',
+            'kdp_preparation.spec'
+        ], check=True)
+        
+        # Build automation script
         subprocess.run([
             'pyinstaller',
             '--clean',
@@ -123,7 +186,7 @@ def build_executable():
         ], check=True)
         
         print("Build completed successfully!")
-        print("Executable created in: ./dist/KDP_Automation.exe")
+        print("Executables created in: ./dist/")
         return True
         
     except subprocess.CalledProcessError as e:
@@ -135,10 +198,14 @@ def create_release_package():
     release_dir = Path('release')
     release_dir.mkdir(exist_ok=True)
     
-    # Copy executable
-    exe_path = Path('dist/KDP_Automation.exe')
-    if exe_path.exists():
-        shutil.copy2(exe_path, release_dir / 'KDP_Automation.exe')
+    # Copy executables
+    prep_exe = Path('dist/KDP_Preparation.exe')
+    auto_exe = Path('dist/KDP_Automation.exe')
+    
+    if prep_exe.exists():
+        shutil.copy2(prep_exe, release_dir / 'KDP_Preparation.exe')
+    if auto_exe.exists():
+        shutil.copy2(auto_exe, release_dir / 'KDP_Automation.exe')
     
     # Copy configuration files
     files_to_copy = [
@@ -152,14 +219,18 @@ def create_release_package():
         if os.path.exists(file_name):
             shutil.copy2(file_name, release_dir / file_name)
     
-    # Create batch file for easy execution
+    # Create batch file that runs both scripts in sequence
     batch_content = '''@echo off
+echo Starting KDP Preparation System...
+KDP_Preparation.exe
+
 echo Starting KDP Automation System...
 KDP_Automation.exe
+
 pause
 '''
     
-    with open(release_dir / 'run_kdp_automation.bat', 'w') as f:
+    with open(release_dir / 'run_kdp_full_process.bat', 'w') as f:
         f.write(batch_content)
     
     print(f"Release package created in: {release_dir}")
@@ -169,10 +240,13 @@ def main():
     print("KDP Automation System - Build Script")
     print("=" * 40)
     
-    # Check if main script exists
+    # Check if main scripts exist
     if not os.path.exists('kdp_automation.py'):
         print("Error: kdp_automation.py not found!")
-        print("Make sure you're running this script in the correct directory.")
+        return
+    
+    if not os.path.exists('kdp_preparation.py'):
+        print("Error: kdp_preparation.py not found!")
         return
     
     # Clean previous builds
@@ -182,16 +256,16 @@ def main():
     if not install_requirements():
         return
     
-    # Create spec file
-    create_spec_file()
+    # Create spec files
+    create_spec_files()
     
-    # Build executable
-    if build_executable():
+    # Build executables
+    if build_executables():
         create_release_package()
         print("\n" + "=" * 40)
         print("BUILD SUCCESSFUL!")
-        print("Your executable is ready in the 'release' directory")
-        print("Run 'run_kdp_automation.bat' to start the application")
+        print("Your executables are ready in the 'release' directory")
+        print("Run 'run_kdp_full_process.bat' to start the full process")
     else:
         print("\n" + "=" * 40)
         print("BUILD FAILED!")

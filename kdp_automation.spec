@@ -1,33 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
-
 block_cipher = None
 
 a = Analysis(
     ['kdp_automation.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('config.ini', '.'),
-        ('README.md', '.'),
-    ],
-    hiddenimports=[
-        'selenium',
-        'selenium.webdriver',
-        'selenium.webdriver.chrome',
-        'selenium.webdriver.chrome.service',
-        'selenium.webdriver.common',
-        'selenium.webdriver.support',
-        'pandas',
-        'openpyxl',
-        'schedule',
-        'configparser',
-        'json',
-        'logging',
-        'datetime',
-        'pathlib',
-        'requests',
-        'urllib3',
-    ],
+    datas=[('config.ini', '.'), ('README.md', '.'), ('metadata_full.csv', '.')],
+    hiddenimports=['pandas', 'openpyxl', 'schedule', 'json', 'logging', 'datetime', 'pathlib', 'shutil', 'os', 'time', 'selenium', 'selenium.webdriver', 'selenium.webdriver.chrome', 'selenium.webdriver.chrome.service', 'selenium.webdriver.common', 'selenium.webdriver.support', 'requests', 'urllib3', 'configparser'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -37,7 +16,6 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
-
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
