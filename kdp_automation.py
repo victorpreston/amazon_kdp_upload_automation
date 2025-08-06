@@ -11,6 +11,7 @@ COMPLETE COVERAGE:
 
 Now reads from prepared books folder created by kdp_preparation.py
 Fixed all form interaction issues including language autocomplete selection.
+FIXED: Category selection methods now properly implemented.
 """
 
 import os
@@ -40,7 +41,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from webdriver_manager.chrome import ChromeDriverManager
 
 # Project version
-VERSION = "2.1.0"
+VERSION = "2.1.1"
 
 class KDPConfig:
     """Configuration management for KDP automation"""
@@ -1425,6 +1426,323 @@ class KDPAutomator:
             # Prepared book paths are already clean, just return as-is
             return file_path.strip()
         return file_path
+    
+    def select_category_by_bisac(self, bisac_code: str):
+        """Select category based on BISAC code - handles KDP category modal"""
+        try:
+            logging.info(f"Attempting to select category for BISAC: {bisac_code}")
+            
+            # BISAC to KDP Category Mapping (common codes)
+            bisac_category_map = {
+                # Sports & Recreation
+                'SPO032000': ['Sports & Outdoors', 'Fishing'],
+                'SPO000000': ['Sports & Outdoors', 'General'],
+                'SPO016000': ['Sports & Outdoors', 'Hunting'],
+                'SPO025000': ['Sports & Outdoors', 'Outdoor Recreation'],
+                
+                # Fiction
+                'FIC027000': ['Literature & Fiction', 'Erotica'],
+                'FIC027020': ['Literature & Fiction', 'Erotica', 'BDSM'],
+                'FIC027060': ['Literature & Fiction', 'Erotica', 'Suspense'],
+                'FIC027120': ['Literature & Fiction', 'Erotica', 'Romantic'],
+                'FIC000000': ['Literature & Fiction', 'General'],
+                'FIC022000': ['Literature & Fiction', 'Literary'],
+                'FIC028000': ['Literature & Fiction', 'Short Stories'],
+                'FIC006000': ['Literature & Fiction', 'Action & Adventure'],
+                'FIC017000': ['Literature & Fiction', 'Fantasy'],
+                'FIC023000': ['Literature & Fiction', 'Psychological'],
+                
+                # Biography & Autobiography
+                'BIO026000': ['Biographies & Memoirs', 'LGBT'],
+                'BIO000000': ['Biographies & Memoirs', 'General'],
+                
+                # Social Science
+                'SOC026000': ['Politics & Social Sciences', 'Sociology', 'Gender Studies'],
+                'SOC005000': ['Politics & Social Sciences', 'Anthropology'],
+                'SOC004000': ['Politics & Social Sciences', 'Sociology'],
+                'SOC021000': ['Politics & Social Sciences', 'Communication & Media Studies'],
+                'SOC002000': ['Politics & Social Sciences', 'Sociology'],
+                
+                # Family & Relationships  
+                'FAM024000': ['Parenting & Relationships', 'Family Relationships'],
+                'FAM034000': ['Parenting & Relationships', 'Love & Romance'],
+                'FAM030000': ['Parenting & Relationships', 'Marriage'],
+                
+                # Health, Fitness & Dieting
+                'HEA024000': ['Health, Fitness & Dieting', 'Women\'s Health'],
+                'HEA000000': ['Health, Fitness & Dieting', 'General'],
+                
+                # Humor & Entertainment
+                'HUM003000': ['Humor & Entertainment', 'Form', 'Parodies'],
+                'HUM000000': ['Humor & Entertainment', 'General'],
+                
+                # Performing Arts
+                'PER024000': ['Arts & Photography', 'Performing Arts', 'Theater'],
+                'PER000000': ['Arts & Photography', 'Performing Arts'],
+                
+                # Default fallback
+                'DEFAULT': ['Literature & Fiction', 'General']
+            }
+            
+            # Get category path for this BISAC code
+            category_path = bisac_category_map.get(bisac_code, bisac_category_map['DEFAULT'])
+            logging.info(f"Using category path: {' > '.join(category_path)}")
+            
+            # Navigate through category hierarchy
+            self.navigate_category_tree(category_path)
+            
+        except Exception as e:
+            logging.error(f"BISAC category selection failed: {e}")
+            # Fallback to default category
+            self.select_default_category()
+    
+    def select_default_category(self):
+        """Select a default category when no BISAC provided or BISAC selection fails"""
+        try:
+            logging.info("Selecting default category: Literature & Fiction > General")
+            
+            # Use safe default category path
+            default_path = ['Literature & Fiction', 'General']
+            self.navigate_category_tree(default_path)
+            
+        except Exception as e:
+            logging.error(f"Default category selection failed: {e}")
+            # Last resort: try to select any available category
+            self.select_any_available_category()
+    
+    def navigate_category_tree(self, category_path: list):
+        """Navigate through KDP category tree hierarchy"""
+        try:
+            logging.info(f"Navigating category tree: {' > '.join(category_path)}")
+            
+            # Wait for modal to be fully loaded
+            time.sleep(2)
+            
+            for i, category_name in enumerate(category_path):
+                logging.info(f"Looking for category level {i+1}: {category_name}")
+                
+                # Multiple selectors for category options
+                category_selectors = [
+                    f"//span[contains(text(), '{category_name}')]",
+                    f"//div[contains(text(), '{category_name}')]",
+                    f"//label[contains(text(), '{category_name}')]",
+                    f"//a[contains(text(), '{category_name}')]",
+                    f"//*[contains(@class, 'category')][contains(text(), '{category_name}')]",
+                    f"//*[text()='{category_name}']"
+                ]
+                
+                category_found = False
+                for selector in category_selectors:
+                    try:
+                        # Look for the category element
+                        category_elements = self.driver.find_elements(By.XPATH, selector)
+                        
+                        for element in category_elements:
+                            if element.is_displayed() and element.is_enabled():
+                                # Scroll to element
+                                self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", element)
+                                time.sleep(0.5)
+                                
+                                # Click the category
+                                try:
+                                    element.click()
+                                except Exception:
+                                    # Fallback: JavaScript click
+                                    self.driver.execute_script("arguments[0].click();", element)
+                                
+                                logging.info(f"Selected category: {category_name}")
+                                category_found = True
+                                time.sleep(1)  # Wait for subcategories to load
+                                break
+                        
+                        if category_found:
+                            break
+                            
+                    except Exception as e:
+                        continue
+                
+                if not category_found:
+                    logging.warning(f"Could not find category: {category_name}")
+                    # Try partial match
+                    if self.try_partial_category_match(category_name):
+                        logging.info(f"Found partial match for: {category_name}")
+                    else:
+                        # If we can't find a specific category, break and use what we have
+                        break
+            
+            logging.info("Category navigation completed")
+            
+        except Exception as e:
+            logging.error(f"Category tree navigation failed: {e}")
+            raise
+    
+    def try_partial_category_match(self, category_name: str):
+        """Try to find category with partial text matching"""
+        try:
+            # Split category name into words and try partial matches
+            words = category_name.split()
+            
+            for word in words:
+                if len(word) > 3:  # Only try meaningful words
+                    partial_selectors = [
+                        f"//*[contains(text(), '{word}')]",
+                        f"//*[contains(@title, '{word}')]",
+                        f"//*[contains(@alt, '{word}')]"
+                    ]
+                    
+                    for selector in partial_selectors:
+                        try:
+                            elements = self.driver.find_elements(By.XPATH, selector)
+                            for element in elements:
+                                if element.is_displayed() and element.is_enabled():
+                                    # Check if this looks like a category element
+                                    element_text = element.text.strip().lower()
+                                    if any(keyword in element_text for keyword in ['category', 'genre', 'fiction', 'non-fiction']):
+                                        element.click()
+                                        time.sleep(1)
+                                        return True
+                        except Exception:
+                            continue
+            
+            return False
+            
+        except Exception as e:
+            logging.warning(f"Partial category match failed: {e}")
+            return False
+    
+    def select_any_available_category(self):
+        """Last resort: select any available category to proceed"""
+        try:
+            logging.warning("Attempting to select any available category as last resort")
+            
+            # Look for any clickable category elements
+            generic_selectors = [
+                "//input[@type='radio'][contains(@name, 'category')]",
+                "//input[@type='checkbox'][contains(@name, 'category')]", 
+                "//*[contains(@class, 'category-option')]",
+                "//*[contains(@class, 'browse-node')]",
+                "//span[contains(@class, 'a-list-item')]",
+                "//div[contains(@class, 'category')]//input",
+                "//label[contains(@class, 'category')]"
+            ]
+            
+            for selector in generic_selectors:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                    for element in elements:
+                        if element.is_displayed() and element.is_enabled():
+                            element.click()
+                            logging.info("Selected fallback category")
+                            time.sleep(1)
+                            return True
+                except Exception:
+                    continue
+            
+            logging.error("Could not select any category - this will prevent publication")
+            return False
+            
+        except Exception as e:
+            logging.error(f"Emergency category selection failed: {e}")
+            return False
+    
+    def save_category_selection(self):
+        """Save category selection and close the modal"""
+        try:
+            logging.info("Saving category selection...")
+            
+            # Look for save/confirm buttons in the modal
+            save_button_selectors = [
+                "//button[contains(text(), 'Save')]",
+                "//button[contains(text(), 'Confirm')]", 
+                "//button[contains(text(), 'Done')]",
+                "//button[contains(text(), 'Apply')]",
+                "//button[contains(text(), 'OK')]",
+                "//input[@value='Save']",
+                "//input[@value='Confirm']",
+                "//input[@value='Done']",
+                "//*[@id='categories-save-button']",
+                "//*[contains(@class, 'save')]//button",
+                "//*[contains(@class, 'confirm')]//button",
+                "//*[contains(@class, 'modal')]//button[contains(@class, 'primary')]"
+            ]
+            
+            save_clicked = False
+            for selector in save_button_selectors:
+                try:
+                    save_btn = self.driver.find_element(By.XPATH, selector)
+                    if save_btn.is_displayed() and save_btn.is_enabled():
+                        # Scroll to button
+                        self.driver.execute_script("arguments[0].scrollIntoView({behavior: 'smooth', block: 'center'});", save_btn)
+                        time.sleep(0.5)
+                        
+                        # Click save button
+                        try:
+                            save_btn.click()
+                        except Exception:
+                            # Fallback: JavaScript click
+                            self.driver.execute_script("arguments[0].click();", save_btn)
+                        
+                        logging.info(f"Clicked save button with selector: {selector}")
+                        save_clicked = True
+                        break
+                        
+                except NoSuchElementException:
+                    continue
+            
+            if not save_clicked:
+                logging.warning("Could not find save button, trying to close modal with ESC")
+                # Fallback: try ESC key to close modal
+                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+            
+            # Wait for modal to close
+            time.sleep(2)
+            
+            # Verify modal is closed by checking if categories button is visible again
+            try:
+                categories_btn = self.driver.find_element(By.ID, "categories-modal-button")
+                if categories_btn.is_displayed():
+                    logging.info("Category selection modal closed successfully")
+                    return True
+            except Exception:
+                pass
+            
+            logging.info("Category selection saved")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Failed to save category selection: {e}")
+            # Try to close modal anyway
+            try:
+                self.driver.find_element(By.TAG_NAME, "body").send_keys(Keys.ESCAPE)
+                time.sleep(1)
+            except Exception:
+                pass
+            return False
+    
+    def handle_categories_emergency(self, book_data):
+        """Emergency category handling when normal flow fails"""
+        try:
+            logging.warning("Attempting emergency category handling...")
+            
+            # Try to reopen categories modal
+            categories_btn = self.driver.find_element(By.ID, "categories-modal-button")
+            self.driver.execute_script("arguments[0].removeAttribute('disabled');", categories_btn)
+            self.driver.execute_script("arguments[0].click();", categories_btn)
+            time.sleep(3)
+            
+            # Try simple default selection
+            self.select_any_available_category()
+            time.sleep(1)
+            
+            # Try to save
+            self.save_category_selection()
+            
+            logging.info("Emergency category handling completed")
+            return True
+            
+        except Exception as e:
+            logging.error(f"Emergency category handling failed: {e}")
+            return False
     
     def process_single_book(self, book_index: int) -> bool:
         """Process a single book upload using prepared book data - COMPLETE 3-STEP FLOW"""

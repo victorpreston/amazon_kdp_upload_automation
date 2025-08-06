@@ -2,13 +2,33 @@
   "cookies": [
     {
       "domain": ".amazon.com",
-      "expiry": 1789032151,
+      "expiry": 1786008148,
+      "httpOnly": true,
+      "name": "at-main",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "Atza|IwEBIJutB0pxL0YUWnVR_yWxaseHa37TBmLF2ewatGzaDZmfGC1Lhxko99_Yw6MHrK5o71pz69-WVYOzReSDfi819drNAoE1qSIN8IvGfO-lr7vZRCubfs8pN7xRKNJ8b5woedsaAwwZyChB-8P7jKqb-ydflzSm7YYdlIKJYMvppnf1m4VAjhXdiUkDrWRZLhW-7NxE3tJzLZGra83LSSjZ09pzY-N5klRLCgoZTOyB2Mb6vg"
+    },
+    {
+      "domain": ".amazon.com",
+      "expiry": 1789036150,
       "httpOnly": false,
-      "name": "session-token",
+      "name": "x-main",
       "path": "/",
       "sameSite": "Lax",
       "secure": false,
-      "value": "vecNgIYMZkY4La4Wg4q8pkBbSRXNZqNIoInd7RriCST18fgVksudo3yJKMyRMfYSr/1469XZ0qCw2RP8W+mez9m9bAayTVwwWoLC2ol51fMuSi/0vvw83VJI1xbQJ4t5FizcjdaS13WGhLhxo90RvynDJNb1RGgbxe4+eRCdqAZJQff26bvqV4axVdACvlvloTioFng/hZm4sZj6X9pY01beo+SqUMdfP2gkQvVoVNvGMvctXB0stUEwglAI5MIJQaNXYYc5IoHz7Uzc8u2JDNsJk+JTNmK7L/bVi5qDFrAH3tOPgbyPPtguPV4tveegOeGo+Tr4YPJvFgQ4zqeESUv2rcp825Hh4Ziyn8Lz+S3xgeKnOc1fBA"
+      "value": "fixnkZ1wnwm1kVDp7TFSLVnFd?@kjwNh4BbMgE@Tgp@v4aQeS8dpvmOKpeo6wDD7"
+    },
+    {
+      "domain": ".kdp.amazon.com",
+      "expiry": 1784714170,
+      "httpOnly": false,
+      "name": "csm-hit",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "tb:41RS964VJHKRM5E38Y9A+s-H3JCJ54YGDNNEBGZ2BSB|1754474170374&t:1754474170374&adb:adblk_no"
     },
     {
       "domain": ".amazon.com",
@@ -21,14 +41,14 @@
       "value": "Sst1|PQHX2Tbl7BRDnGDkGadJ4VCuCZZprAJIO6lmLq8KhzByKFNtCjtP9TM0qng-s6taXnG1ou46-KJgysIjiQXKXlrFs2Chv8yAzTTRjpT32reFyPSbOEOqC8Xg596JP5Cu2N3gbh5WA56iQ1G6d2xyOUQqFaRTaMvTlhgeif2xzmW88FZ5hlP8fnEg5l2xufgZCj5Zplmpv2B71hgxGfyhDDqT0hRAZDCndaIBTKm30SGsxPGpzR9ot3xptv3r4JpCOZAaGnbJhX3xtkKCB7Ws27JgZrJYFb16iuT0TtdBmzfNIGo"
     },
     {
-      "domain": ".amazon.com",
-      "expiry": 1786008148,
-      "httpOnly": true,
-      "name": "at-main",
+      "domain": "kdp.amazon.com",
+      "expiry": 1784716377,
+      "httpOnly": false,
+      "name": "csm-hit",
       "path": "/",
       "sameSite": "Lax",
-      "secure": true,
-      "value": "Atza|IwEBIJutB0pxL0YUWnVR_yWxaseHa37TBmLF2ewatGzaDZmfGC1Lhxko99_Yw6MHrK5o71pz69-WVYOzReSDfi819drNAoE1qSIN8IvGfO-lr7vZRCubfs8pN7xRKNJ8b5woedsaAwwZyChB-8P7jKqb-ydflzSm7YYdlIKJYMvppnf1m4VAjhXdiUkDrWRZLhW-7NxE3tJzLZGra83LSSjZ09pzY-N5klRLCgoZTOyB2Mb6vg"
+      "secure": false,
+      "value": "tb:s-4NPGXNBX1T18T1E80Z86|1754476376933&t:1754476377205&adb:adblk_no"
     },
     {
       "domain": ".amazon.com",
@@ -42,13 +62,13 @@
     },
     {
       "domain": ".amazon.com",
-      "expiry": 1786008148,
+      "expiry": 1789036378,
       "httpOnly": false,
-      "name": "x-main",
+      "name": "session-token",
       "path": "/",
       "sameSite": "Lax",
-      "secure": true,
-      "value": "\"O?q4T7U3p5LXLxjmWW?4hNySrdWhlQ3bI@IQOezSUNf3zpf53HfsIj?A6DsTPhRg\""
+      "secure": false,
+      "value": "+bY3zMfldIp9tOhoA+OS/++PKPETjF5ptKkVBNZLwQFNqEdQnBo6u36ldViYPXMlRkNsdfz2fxWTx5IMvXpNDbpFdZ8W9orkTI7f/6M9mejkFQLKyht9zO+rdj6BdCSwKFyQkKWv1zAk/xmiFGTOLRHrLVsUkdnJPXMI3V2c1xFuVGU0SnjdhCu+PAgyHeBKY0wDdMrM7S47XG1dSYspivIRLpJTb4zksBMdHxFkiekAuTCzUVgkVInAJopIDTJTaQS2gY+MUSZ7OCUEJeDCG7bNmjZ+mUXoeafCbFmoit/YsgLuF0EiFrms0BW9OgrArDRebOa7Bp7dap0EYQPv3g6rpWU/TV2MHdvf6O7zUqigjAJ1YgoIJk5SpHKHGHEE"
     },
     {
       "domain": ".amazon.com",
@@ -57,22 +77,12 @@
       "name": "kdp-lc-main",
       "path": "/",
       "sameSite": "Lax",
-      "secure": false,
+      "secure": true,
       "value": "en_US"
     },
     {
-      "domain": "kdp.amazon.com",
-      "expiry": 1784712150,
-      "httpOnly": false,
-      "name": "csm-hit",
-      "path": "/",
-      "sameSite": "Lax",
-      "secure": false,
-      "value": "tb:s-Y3BN1K0TF7CJR79VSJVV|1754472149980&t:1754472150694&adb:adblk_no"
-    },
-    {
       "domain": ".amazon.com",
-      "expiry": 1789032151,
+      "expiry": 1789036378,
       "httpOnly": false,
       "name": "session-id-time",
       "path": "/",
@@ -102,7 +112,7 @@
     },
     {
       "domain": ".amazon.com",
-      "expiry": 1789032151,
+      "expiry": 1789036378,
       "httpOnly": false,
       "name": "session-id",
       "path": "/",
@@ -111,7 +121,7 @@
       "value": "141-2981490-0847414"
     }
   ],
-  "current_url": "https://kdp.amazon.com/en_US/bookshelf",
-  "timestamp": "2025-08-06T12:22:31.601079",
+  "current_url": "https://kdp.amazon.com/en_US/title-setup/kindle/A7N2L4KPMPDUJ/content",
+  "timestamp": "2025-08-06T13:34:20.737283",
   "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 }
